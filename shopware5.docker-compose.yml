@@ -1,0 +1,68 @@
+version: '2'
+services:
+  db:
+    image: dnhsoft/mysql-utf8:5.7
+    volumes:
+      - 'mysql:/var/lib/mysql'
+    networks:
+      - backend
+  
+  mailhog:
+    image: mailhog/mailhog
+    expose:
+      - '1025'
+      - '8025'
+    ports:
+      - '8025:8025'
+    networks:
+      - backend
+  
+  pma:
+    image: dnhsoft/phpmyadmin:4.6.3
+    environment:
+      VIRTUAL_HOST: pma.dev
+    expose:
+      - '80'
+    networks:
+      - backend
+      - router
+  
+  bg-sync:
+    image: cweagans/bg-sync
+    volumes:
+      - ./shopware:/source
+    volumes_from:
+      - shop
+    environment:
+      SYNC_DESTINATION: /shopware
+      SYNC_MAX_INOTIFY_WATCHES: 40000
+      SYNC_VERBOSE: 0
+      SYNC_EXTRA_UNISON_PROFILE_OPTS: |
+        ignore = Path var/*
+        ignore = Path media/*
+    privileged: true
+  
+  shop:
+    image: dnhsoft/shopware:5.2.22-php7
+    environment:
+      VIRTUAL_HOST: shop.dev
+    depends_on:
+      - db
+      - mailhog
+    volumes:
+      - /shopware
+    networks:
+      - router
+      - backend
+    expose:
+      - '80'
+
+volumes:
+  mysql:
+
+networks:
+  backend:
+    driver: bridge
+  router:
+    external:
+      name: devDomainRouter
